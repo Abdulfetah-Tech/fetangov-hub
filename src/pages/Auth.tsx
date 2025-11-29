@@ -14,7 +14,7 @@ import heroBg from '@/assets/hero-bg.jpg';
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode') === 'register' ? 'register' : 'login';
-  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -27,7 +27,7 @@ const Auth = () => {
   });
   
   const { t } = useLanguage();
-  const { login, register, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, register, resetPassword, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -42,6 +42,28 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      if (mode === 'forgot') {
+        const { error } = await resetPassword(formData.email);
+        
+        if (error) {
+          toast({
+            title: t('common.error'),
+            description: 'Failed to send reset email. Please try again.',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        toast({
+          title: t('common.success'),
+          description: 'Password reset email sent! Check your inbox.',
+        });
+        setMode('login');
+        setIsLoading(false);
+        return;
+      }
+
       if (mode === 'login') {
         const { error } = await login(formData.email, formData.password);
         
@@ -69,7 +91,7 @@ const Auth = () => {
           title: t('common.success'),
           description: 'Welcome back to OneGov!',
         });
-      } else {
+      } else if (mode === 'register') {
         // Validation
         if (formData.password !== formData.confirmPassword) {
           toast({
@@ -134,6 +156,16 @@ const Auth = () => {
     }
   };
 
+  const getTitle = () => {
+    if (mode === 'forgot') return 'Reset Password';
+    return mode === 'login' ? t('auth.login.title') : t('auth.register.title');
+  };
+
+  const getSubtitle = () => {
+    if (mode === 'forgot') return 'Enter your email to receive a password reset link';
+    return mode === 'login' ? t('auth.login.subtitle') : t('auth.register.subtitle');
+  };
+
   // Show loading while checking auth status
   if (authLoading) {
     return (
@@ -173,10 +205,10 @@ const Auth = () => {
           <Card className="border-0 shadow-none">
             <CardHeader className="px-0">
               <CardTitle className="text-2xl">
-                {mode === 'login' ? t('auth.login.title') : t('auth.register.title')}
+                {getTitle()}
               </CardTitle>
               <CardDescription>
-                {mode === 'login' ? t('auth.login.subtitle') : t('auth.register.subtitle')}
+                {getSubtitle()}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0">
@@ -219,33 +251,35 @@ const Auth = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">{t('auth.password')}</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      required
-                      minLength={6}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
+                {mode !== 'forgot' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">{t('auth.password')}</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        required
+                        minLength={6}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {mode === 'register' && (
                   <div className="space-y-2">
@@ -276,7 +310,12 @@ const Auth = () => {
                         {t('auth.rememberMe')}
                       </Label>
                     </div>
-                    <Button variant="link" className="p-0 h-auto text-sm">
+                    <Button 
+                      variant="link" 
+                      className="p-0 h-auto text-sm"
+                      type="button"
+                      onClick={() => setMode('forgot')}
+                    >
                       {t('auth.forgotPassword')}
                     </Button>
                   </div>
@@ -284,21 +323,36 @@ const Auth = () => {
 
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {mode === 'login' ? t('auth.login.title') : t('auth.register.title')}
+                  {mode === 'forgot' ? 'Send Reset Link' : mode === 'login' ? t('auth.login.title') : t('auth.register.title')}
                 </Button>
               </form>
 
               <div className="mt-6 text-center text-sm">
-                <span className="text-muted-foreground">
-                  {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}
-                </span>{' '}
-                <Button
-                  variant="link"
-                  className="p-0 h-auto"
-                  onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-                >
-                  {mode === 'login' ? t('nav.register') : t('nav.login')}
-                </Button>
+                {mode === 'forgot' ? (
+                  <>
+                    <span className="text-muted-foreground">Remember your password?</span>{' '}
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto"
+                      onClick={() => setMode('login')}
+                    >
+                      Back to login
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-muted-foreground">
+                      {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}
+                    </span>{' '}
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto"
+                      onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                    >
+                      {mode === 'login' ? t('nav.register') : t('nav.login')}
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
