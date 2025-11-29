@@ -22,7 +22,7 @@ const languages: { code: Language; name: string; native: string }[] = [
 export const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { language, setLanguage, t } = useLanguage();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { profile, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
   const currentLang = languages.find(l => l.code === language);
@@ -95,7 +95,7 @@ export const Header = () => {
                   <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
                     <User className="h-4 w-4" />
                   </div>
-                  <span className="hidden sm:inline max-w-[100px] truncate">{user?.fullName}</span>
+                  <span className="hidden sm:inline max-w-[100px] truncate">{profile?.full_name}</span>
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>

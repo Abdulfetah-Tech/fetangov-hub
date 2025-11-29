@@ -27,15 +27,15 @@ const Auth = () => {
   });
   
   const { t } = useLanguage();
-  const { login, register, isAuthenticated } = useAuth();
+  const { login, register, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!authLoading && isAuthenticated) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,12 +43,34 @@ const Auth = () => {
 
     try {
       if (mode === 'login') {
-        await login(formData.email, formData.password);
+        const { error } = await login(formData.email, formData.password);
+        
+        if (error) {
+          let errorMessage = 'Something went wrong. Please try again.';
+          
+          if (error.message.includes('Invalid login credentials')) {
+            errorMessage = 'Invalid email or password. Please try again.';
+          } else if (error.message.includes('Email not confirmed')) {
+            errorMessage = 'Please confirm your email before logging in.';
+          } else if (error.message.includes('Too many requests')) {
+            errorMessage = 'Too many login attempts. Please try again later.';
+          }
+          
+          toast({
+            title: t('common.error'),
+            description: errorMessage,
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+        
         toast({
           title: t('common.success'),
           description: 'Welcome back to OneGov!',
         });
       } else {
+        // Validation
         if (formData.password !== formData.confirmPassword) {
           toast({
             title: t('common.error'),
@@ -58,18 +80,49 @@ const Auth = () => {
           setIsLoading(false);
           return;
         }
-        await register({
+        
+        if (formData.password.length < 6) {
+          toast({
+            title: t('common.error'),
+            description: 'Password must be at least 6 characters',
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        const { error } = await register({
           email: formData.email,
           password: formData.password,
           fullName: formData.fullName,
           phone: formData.phone,
         });
+        
+        if (error) {
+          let errorMessage = 'Something went wrong. Please try again.';
+          
+          if (error.message.includes('User already registered')) {
+            errorMessage = 'An account with this email already exists. Please login instead.';
+          } else if (error.message.includes('Invalid email')) {
+            errorMessage = 'Please enter a valid email address.';
+          } else if (error.message.includes('Password')) {
+            errorMessage = error.message;
+          }
+          
+          toast({
+            title: t('common.error'),
+            description: errorMessage,
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+        
         toast({
           title: t('common.success'),
           description: 'Account created successfully!',
         });
       }
-      navigate('/dashboard');
     } catch (error) {
       toast({
         title: t('common.error'),
@@ -80,6 +133,15 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
+
+  // Show loading while checking auth status
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -167,6 +229,7 @@ const Auth = () => {
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       required
+                      minLength={6}
                     />
                     <Button
                       type="button"
@@ -194,6 +257,7 @@ const Auth = () => {
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                       required
+                      minLength={6}
                     />
                   </div>
                 )}
