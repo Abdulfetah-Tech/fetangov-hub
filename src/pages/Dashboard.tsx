@@ -90,16 +90,16 @@ const getStatusBadge = (status: string) => {
 
 const Dashboard = () => {
   const { t } = useLanguage();
-  const { user, isAuthenticated } = useAuth();
+  const { user, profile, role, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
-  if (!isAuthenticated || !user) {
+  if (isLoading || !isAuthenticated || !user) {
     return null;
   }
 
@@ -109,7 +109,7 @@ const Dashboard = () => {
         {/* Welcome Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            {t('dashboard.welcome')}, {user.fullName.split(' ')[0]}!
+            {t('dashboard.welcome')}, {profile?.full_name?.split(' ')[0] || 'User'}!
           </h1>
           <p className="text-muted-foreground">{t('dashboard.overview')}</p>
         </div>
@@ -240,10 +240,10 @@ const Dashboard = () => {
                     <User className="h-8 w-8 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">{user.fullName}</h3>
+                    <h3 className="font-semibold text-foreground">{profile?.full_name || 'User'}</h3>
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                     <Badge variant="outline" className="mt-1 capitalize">
-                      {user.role}
+                      {role || 'citizen'}
                     </Badge>
                   </div>
                 </div>
