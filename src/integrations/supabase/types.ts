@@ -14,6 +14,116 @@ export type Database = {
   }
   public: {
     Tables: {
+      contact_submissions: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          message: string
+          name: string
+          phone: string | null
+          status: string | null
+          subject: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          message: string
+          name: string
+          phone?: string | null
+          status?: string | null
+          subject: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          message?: string
+          name?: string
+          phone?: string | null
+          status?: string | null
+          subject?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          application_id: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          storage_path: string
+          uploaded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id?: string
+          storage_path: string
+          uploaded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          application_id?: string | null
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          storage_path?: string
+          uploaded_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "service_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          link: string | null
+          message: string
+          read: boolean | null
+          title: string
+          type: Database["public"]["Enums"]["notification_type"] | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          link?: string | null
+          message: string
+          read?: boolean | null
+          title: string
+          type?: Database["public"]["Enums"]["notification_type"] | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          link?: string | null
+          message?: string
+          read?: boolean | null
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -41,6 +151,42 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           verified?: boolean | null
+        }
+        Relationships: []
+      }
+      service_applications: {
+        Row: {
+          form_data: Json | null
+          id: string
+          notes: string | null
+          service_name: string
+          service_type: string
+          status: Database["public"]["Enums"]["application_status"] | null
+          submitted_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          form_data?: Json | null
+          id?: string
+          notes?: string | null
+          service_name: string
+          service_type: string
+          status?: Database["public"]["Enums"]["application_status"] | null
+          submitted_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          form_data?: Json | null
+          id?: string
+          notes?: string | null
+          service_name?: string
+          service_type?: string
+          status?: Database["public"]["Enums"]["application_status"] | null
+          submitted_at?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -77,6 +223,13 @@ export type Database = {
     }
     Enums: {
       app_role: "citizen" | "business" | "officer" | "admin"
+      application_status:
+        | "pending"
+        | "in_review"
+        | "approved"
+        | "rejected"
+        | "completed"
+      notification_type: "info" | "success" | "warning" | "error"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -205,6 +358,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["citizen", "business", "officer", "admin"],
+      application_status: [
+        "pending",
+        "in_review",
+        "approved",
+        "rejected",
+        "completed",
+      ],
+      notification_type: ["info", "success", "warning", "error"],
     },
   },
 } as const

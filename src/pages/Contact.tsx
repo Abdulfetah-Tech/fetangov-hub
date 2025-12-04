@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
+import { useContactSubmission } from '@/hooks/useContactSubmission';
 
 const contactInfo = [
   {
@@ -40,7 +41,7 @@ const contactInfo = [
 const Contact = () => {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const { submitContact, isLoading } = useContactSubmission();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -51,18 +52,30 @@ const Contact = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    if (!formData.subject) {
+      toast({
+        title: 'Please select a subject',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const result = await submitContact(formData);
     
-    toast({
-      title: 'Message Sent!',
-      description: 'We\'ll get back to you within 24 hours.',
-    });
-    
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-    setIsLoading(false);
+    if (result.success) {
+      toast({
+        title: 'Message Sent!',
+        description: "We'll get back to you within 24 hours.",
+      });
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+    } else {
+      toast({
+        title: 'Failed to send message',
+        description: result.error || 'Please try again later.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

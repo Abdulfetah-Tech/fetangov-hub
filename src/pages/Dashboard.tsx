@@ -11,7 +11,8 @@ import {
   Bell,
   Calendar,
   User,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +21,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useServiceApplications, ApplicationStatus } from '@/hooks/useServiceApplications';
+import { useNotifications } from '@/hooks/useNotifications';
+import { formatDistanceToNow } from 'date-fns';
 
 const quickActions = [
   { icon: FileText, label: 'File Taxes', path: '/services/tax' },
@@ -27,81 +31,60 @@ const quickActions = [
   { icon: Building2, label: 'Register Business', path: '/services/business' },
 ];
 
-const recentActivity = [
-  {
-    id: 1,
-    title: 'National ID Renewal',
-    status: 'in-progress',
-    date: '2025-11-25',
-    progress: 60,
-  },
-  {
-    id: 2,
-    title: 'Tax Filing 2024',
-    status: 'completed',
-    date: '2025-11-20',
-    progress: 100,
-  },
-  {
-    id: 3,
-    title: 'Business License Application',
-    status: 'pending',
-    date: '2025-11-28',
-    progress: 0,
-  },
-];
-
-const notifications = [
-  {
-    id: 1,
-    title: 'ID Ready for Pickup',
-    message: 'Your national ID is ready at Addis Ababa Service Center',
-    time: '2 hours ago',
-    read: false,
-  },
-  {
-    id: 2,
-    title: 'Tax Payment Confirmed',
-    message: 'Your tax payment of ETB 5,000 has been processed',
-    time: '1 day ago',
-    read: true,
-  },
-  {
-    id: 3,
-    title: 'Document Verification Required',
-    message: 'Please upload additional documents for your business license',
-    time: '2 days ago',
-    read: true,
-  },
-];
-
-const getStatusBadge = (status: string) => {
+const getStatusBadge = (status: ApplicationStatus) => {
   switch (status) {
     case 'completed':
+    case 'approved':
       return <Badge className="bg-success text-success-foreground">Completed</Badge>;
-    case 'in-progress':
+    case 'in_review':
       return <Badge className="bg-warning text-warning-foreground">In Progress</Badge>;
     case 'pending':
       return <Badge variant="secondary">Pending</Badge>;
+    case 'rejected':
+      return <Badge className="bg-destructive text-destructive-foreground">Rejected</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
 };
 
+const getProgressValue = (status: ApplicationStatus) => {
+  switch (status) {
+    case 'pending': return 10;
+    case 'in_review': return 60;
+    case 'approved':
+    case 'completed': return 100;
+    case 'rejected': return 100;
+    default: return 0;
+  }
+};
+
 const Dashboard = () => {
   const { t } = useLanguage();
-  const { user, profile, role, isAuthenticated, isLoading } = useAuth();
+  const { user, profile, role, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const { applications, isLoading: appsLoading, getApplicationStats } = useServiceApplications();
+  const { notifications, unreadCount, markAsRead, isLoading: notifLoading } = useNotifications();
+
+  const stats = getApplicationStats();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, authLoading, navigate]);
 
-  if (isLoading || !isAuthenticated || !user) {
-    return null;
+  if (authLoading || !isAuthenticated || !user) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
   }
+
+  const recentApplications = applications.slice(0, 3);
+  const recentNotifications = notifications.slice(0, 3);
 
   return (
     <Layout>
@@ -121,7 +104,7 @@ const Dashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">{t('dashboard.pending')}</p>
-                  <p className="text-3xl font-bold text-warning-foreground">2</p>
+                  <p className="text-3xl font-bold text-warning-foreground">{stats.pending}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-warning/20 flex items-center justify-center">
                   <Clock className="h-6 w-6 text-warning" />
@@ -135,7 +118,7 @@ const Dashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">{t('dashboard.inProgress')}</p>
-                  <p className="text-3xl font-bold text-info-foreground">1</p>
+                  <p className="text-3xl font-bold text-info-foreground">{stats.inProgress}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-info/20 flex items-center justify-center">
                   <AlertCircle className="h-6 w-6 text-info" />
@@ -149,7 +132,7 @@ const Dashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">{t('dashboard.completed')}</p>
-                  <p className="text-3xl font-bold text-success-foreground">12</p>
+                  <p className="text-3xl font-bold text-success-foreground">{stats.completed}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-success/20 flex items-center justify-center">
                   <CheckCircle2 className="h-6 w-6 text-success" />
@@ -191,41 +174,52 @@ const Dashboard = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
-                <Button variant="ghost" size="sm" className="gap-1">
+                <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate('/applications')}>
                   {t('common.viewAll')}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {recentActivity.map((activity) => (
-                    <div 
-                      key={activity.id}
-                      className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium text-foreground truncate">
-                            {activity.title}
-                          </h4>
-                          {getStatusBadge(activity.status)}
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {activity.date}
-                          </span>
-                        </div>
-                        {activity.status === 'in-progress' && (
-                          <div className="mt-2">
-                            <Progress value={activity.progress} className="h-1.5" />
+                {appsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : recentApplications.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">No applications yet</p>
+                    <Button onClick={() => navigate('/services')}>Browse Services</Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {recentApplications.map((application) => (
+                      <div 
+                        key={application.id}
+                        className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-medium text-foreground truncate">
+                              {application.service_name}
+                            </h4>
+                            {getStatusBadge(application.status)}
                           </div>
-                        )}
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(application.submitted_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {application.status === 'in_review' && (
+                            <div className="mt-2">
+                              <Progress value={getProgressValue(application.status)} className="h-1.5" />
+                            </div>
+                          )}
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                       </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -260,36 +254,47 @@ const Dashboard = () => {
                   <Bell className="h-5 w-5" />
                   {t('dashboard.notifications')}
                 </CardTitle>
-                <Badge variant="secondary">3</Badge>
+                {unreadCount > 0 && <Badge variant="secondary">{unreadCount}</Badge>}
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {notifications.map((notification) => (
-                    <div 
-                      key={notification.id}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                        notification.read ? 'bg-muted/30' : 'bg-primary/5 border border-primary/10'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        {!notification.read && (
-                          <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-foreground truncate">
-                            {notification.title}
-                          </h4>
-                          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {notification.time}
-                          </p>
+                {notifLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : recentNotifications.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No notifications yet
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {recentNotifications.map((notification) => (
+                      <div 
+                        key={notification.id}
+                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                          notification.read ? 'bg-muted/30' : 'bg-primary/5 border border-primary/10'
+                        }`}
+                        onClick={() => !notification.read && markAsRead(notification.id)}
+                      >
+                        <div className="flex items-start gap-2">
+                          {!notification.read && (
+                            <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-foreground truncate">
+                              {notification.title}
+                            </h4>
+                            <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
                 <Button variant="ghost" className="w-full mt-4" size="sm">
                   {t('common.viewAll')} Notifications
                 </Button>
