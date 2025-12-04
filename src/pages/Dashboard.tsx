@@ -241,9 +241,16 @@ const Dashboard = () => {
                     </Badge>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full" onClick={() => navigate('/profile')}>
-                  View Profile
-                </Button>
+                <div className="space-y-2">
+                  <Button variant="outline" className="w-full" onClick={() => navigate('/profile')}>
+                    View Profile
+                  </Button>
+                  {(role === 'officer' || role === 'admin') && (
+                    <Button className="w-full" onClick={() => navigate('/admin')}>
+                      Admin Dashboard
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
